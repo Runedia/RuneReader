@@ -370,6 +370,14 @@ class _MiscTab extends StatelessWidget {
           onChanged: (v) => set(s.copyWith(volumeKeyPaging: v)),
         ),
         SwitchListTile(
+          title: const Text('처음·끝에서 볼륨 키로 이전·다음 파일 열기'),
+          subtitle: const Text('같은 폴더(가져온 파일은 서재 순서)의 TXT'),
+          value: s.autoNextFile,
+          onChanged: s.volumeKeyPaging
+              ? (v) => set(s.copyWith(autoNextFile: v))
+              : null,
+        ),
+        SwitchListTile(
           title: const Text('화면 켜짐 유지'),
           value: s.keepScreenOn,
           onChanged: (v) => set(s.copyWith(keepScreenOn: v)),

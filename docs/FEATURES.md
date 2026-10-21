@@ -15,10 +15,14 @@ Android용 TXT·이미지 E-Book 리더. 참고 모델: 문+ 리더(Moon+ Reader
 | [x] | L-1 | TXT 가져오기 | SAF 파일 선택기로 `.txt` 다중 선택, 앱 문서 폴더에 복사 | T,D | `ui/home_page.dart`, `services/library_service.dart` |
 | [x] | L-2 | 이미지 가져오기 | 이미지 다중 선택을 하나의 묶음으로 복사 (중복 파일명 보존) | T | 同 |
 | [x] | L-3 | 압축 이미지 가져오기 | `.zip`, `.cbz` | B | 同 |
-| [x] | L-4 | 최근 순 목록 | 마지막 열람(없으면 추가) 시각 내림차순, 진행률 막대 | T | `app_state.dart` |
+| [x] | L-4 | 서재 정렬 | 최근 열람 / 추가일 / 이름(자연 정렬) / 진행률, 오름·내림차순 전환, 설정에 저장 | T | `services/folder_service.dart`, `ui/home_page.dart` |
 | [x] | L-5 | 서재에서 삭제 | 확인 대화상자 후 앱 내부 복사본만 삭제, 원본 유지 | T | `app_state.dart` |
 | [x] | L-6 | 진행 위치 저장 | 문단+문자 오프셋/이미지 쪽 번호, 진행률, 열람 시각을 `library.json`에 디바운스 저장 | T | `models/book.dart` |
-| [ ] | L-7 | 폴더 스캔 | 저장소 폴더를 지정해 자동 등록 (Android 11+ 전체 파일 권한 필요) | - | |
+| [x] | L-7 | 폴더 탐색 (현재 폴더) | 하단 `폴더` 탭. 저장소 루트부터 탐색하고, 마지막 위치를 현재 폴더(pwd)로 저장해 다음 실행 때 복원. 파일은 복사하지 않고 그 자리에서 연다 | T,D | `ui/folder_page.dart` |
+| [x] | L-9 | 폴더 등록 | ☆로 현재 폴더를 등록/해제, 상단 칩으로 바로 이동, 칩을 길게 눌러 해제 | T,D | 同 |
+| [x] | L-10 | 폴더 정렬 | 이름(자연 정렬) / 수정일 / 크기 / 종류, 오름·내림차순. 폴더가 항상 먼저 | T | `services/folder_service.dart` |
+| [x] | L-11 | 폴더에서 열기 | TXT → 텍스트 뷰어, ZIP/CBZ → 이미지 뷰어, 이미지 → 그 폴더 전체를 묶음으로 열고 누른 이미지부터 표시 | T(TXT),D(TXT) | `ui/folder_page.dart` |
+| [x] | L-12 | 저장소 권한 | Android 11+ "모든 파일 접근"(`MANAGE_EXTERNAL_STORAGE`), 10 이하 `READ_EXTERNAL_STORAGE`. 권한이 없으면 설정 화면 버튼을 표시하고 복귀 시 재확인 | D(허용 상태) | `MainActivity.kt`, `services/storage_access.dart` |
 | [ ] | L-8 | 외부 앱 "다른 앱으로 열기" 인텐트 수신 | | - | |
 
 ## 2. 텍스트 뷰어
@@ -68,10 +72,11 @@ Android용 TXT·이미지 E-Book 리더. 참고 모델: 문+ 리더(Moon+ Reader
 | 상태 | ID | 기능 | 설명 | 검증 | 구현 위치 |
 |---|---|---|---|---|---|
 | [x] | R-1 | 페이지 모드 | 줄 단위로 잘리는 정확한 페이지 분할, 점진 계산(12 ms 단위 양보) | T,D | `services/paginator.dart` |
-| [x] | R-2 | 스크롤 모드 | 문단 단위 지연 렌더링, 위치 추적 | B | `ui/text_reader_page.dart` |
+| [x] | R-2 | 스크롤 모드 (기본값) | 연속 스크롤, 문단 단위 지연 렌더링, 위치 추적. 새 설치의 기본 읽기 방식 | T(기본값),D | `ui/text_reader_page.dart` |
 | [x] | R-3 | 탭 영역 | 왼쪽 30% 이전, 오른쪽 30% 다음, 가운데 메뉴 | D | 同 |
 | [x] | R-4 | 스와이프 넘김 / 애니메이션 끄기 | | B | 同 |
-| [x] | R-5 | 볼륨 키 넘김 | `MainActivity.dispatchKeyEvent` + MethodChannel, 옵션 | B | `MainActivity.kt`, `services/volume_keys.dart` |
+| [x] | R-5 | 볼륨 키 넘김 (기본 켜짐) | 다운 = 다음 페이지/한 화면 아래, 업 = 이전. `MainActivity.dispatchKeyEvent`에서 가로채 시스템 음량은 바뀌지 않음 | T(기본값),D | `MainActivity.kt`, `services/volume_keys.dart` |
+| [x] | R-18 | 처음·끝에서 이전·다음 파일 | 마지막 페이지(스크롤 끝)에서 볼륨 다운 → 다음 TXT, 첫 페이지(스크롤 처음)에서 볼륨 업 → 이전 TXT. 폴더에서 연 파일은 같은 폴더의 폴더 정렬 순서, 가져온 파일은 서재 정렬 순서. 이전 파일을 처음 열면 끝에서 시작. 옵션(기본 켜짐), 탭 넘김에는 적용하지 않음 | T,D | `ui/text_reader_page.dart`, `app_state.dart` |
 | [x] | R-6 | 위치 복원 | 저장된 문단·오프셋이 들어 있는 페이지로 이동 | T | 同 |
 | [x] | R-7 | 진행률 슬라이더 | 문자 기준 백분율로 이동 | B | 同 |
 | [x] | R-8 | 목차 자동 감지 | `제n장/화/권`, `n화`, `Chapter`, `프롤로그/에필로그/외전`, `〈n〉` 등 | T | `services/toc.dart` |
@@ -135,7 +140,9 @@ Android용 TXT·이미지 E-Book 리더. 참고 모델: 문+ 리더(Moon+ Reader
 
 ## 6. 검증 현황 요약
 
-- 단위·위젯 테스트: `.\tool\flutter.ps1 test` — 40개 통과 (2026-10-21).
+- 단위·위젯 테스트: `.\tool\flutter.ps1 test` — 51개 통과 (2026-10-21, 2차).
+- 2차 에뮬레이터 확인: 앱 데이터 초기화 후 폴더 탭 → `/sdcard/Novels` 이동·등록 → `01.txt`가 스크롤 모드로 열림 → 끝에서 볼륨 다운으로 `02.txt` → 처음에서 볼륨 업으로 `01.txt`, 시스템 음량 5 유지 → 긴 파일 중간에서 볼륨 다운 2회 0.0→2.9%, 업 1회 1.3%.
+- 2차 미확인(`D` 없음): 권한이 없는 상태의 안내 화면과 설정 화면 복귀, 정렬 메뉴 UI 조작, 폴더에서 이미지·ZIP 열기, SD 카드 루트.
 - APK 빌드: `.\tool\flutter.ps1 build apk --debug` — 성공 (2026-10-21).
 - 에뮬레이터 동작 확인(`D`, 2026-10-21, Pixel 10 Pro XL API 37): CP949 샘플 TXT를 SAF로 가져오기 → 자동 감지·확장 완성형 표시 → 페이지 모드 59쪽 분할 → 탭 넘김 → 메뉴 → 다크 전환 → 설정 시트에서 장평 80%·크기 20 적용 시 67쪽으로 재배치되고 위치(3.1%) 유지.
 - 에뮬레이터 확인 중 발견·수정: `Stream<Uint8List>.pipe(IOSink)` 런타임 타입 오류로 가져오기 실패 → `IOSink.addStream`으로 변경, 회귀 테스트 추가.

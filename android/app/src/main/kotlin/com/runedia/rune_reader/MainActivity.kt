@@ -1,5 +1,13 @@
 package com.runedia.rune_reader
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.os.storage.StorageManager
+import android.provider.Settings
 import android.view.KeyEvent
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -25,6 +33,62 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "rune_reader/storage",
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "hasAccess" -> result.success(hasStorageAccess())
+                "requestAccess" -> {
+                    requestStorageAccess()
+                    result.success(null)
+                }
+                "roots" -> result.success(storageRoots())
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    // Reading arbitrary files by path in shared storage needs "All files
+    // access" on Android 11+ and READ_EXTERNAL_STORAGE before that.
+    private fun hasStorageAccess(): Boolean =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Environment.isExternalStorageManager()
+        } else {
+            checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) ==
+                PackageManager.PERMISSION_GRANTED
+        }
+
+    private fun requestStorageAccess() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                startActivity(
+                    Intent(
+                        Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                        Uri.parse("package:$packageName"),
+                    ),
+                )
+            } catch (e: Exception) {
+                startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+            }
+        } else {
+            requestPermissions(arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), 1)
+        }
+    }
+
+    private fun storageRoots(): List<String> {
+        val roots = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val manager = getSystemService(StorageManager::class.java)
+            manager?.storageVolumes?.forEach { volume ->
+                volume.directory?.path?.let { roots.add(it) }
+            }
+        }
+        if (roots.isEmpty()) {
+            @Suppress("DEPRECATION")
+            roots.add(Environment.getExternalStorageDirectory().path)
+        }
+        return roots
     }
 
     // Activity.dispatchKeyEvent runs before the view hierarchy, so the

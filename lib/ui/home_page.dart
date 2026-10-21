@@ -4,10 +4,11 @@ import 'package:path/path.dart' as p;
 
 import '../app_state.dart';
 import '../models/book.dart';
+import '../models/reader_settings.dart';
 import '../services/library_service.dart';
+import 'folder_page.dart';
 import 'font_page.dart';
-import 'image_viewer_page.dart';
-import 'text_reader_page.dart';
+import 'open_entry.dart';
 import 'theme_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -19,16 +20,38 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   bool _busy = false;
+  int _tab = 0;
 
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
-    final theme = state.theme;
-    final entries = state.entries;
+    final s = state.settings;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('RuneReader'),
+        title: Text(_tab == 0 ? 'RuneReader' : '폴더'),
         actions: [
+          if (_tab == 0)
+            _SortMenu<LibrarySort>(
+              values: LibrarySort.values,
+              selected: s.librarySort,
+              descending: s.librarySortDescending,
+              label: (v) => v.label,
+              onSelected: (v) =>
+                  state.updateSettings(s.copyWith(librarySort: v)),
+              onDescending: (v) =>
+                  state.updateSettings(s.copyWith(librarySortDescending: v)),
+            )
+          else
+            _SortMenu<FolderSort>(
+              values: FolderSort.values,
+              selected: s.folderSort,
+              descending: s.folderSortDescending,
+              label: (v) => v.label,
+              onSelected: (v) =>
+                  state.updateSettings(s.copyWith(folderSort: v)),
+              onDescending: (v) =>
+                  state.updateSettings(s.copyWith(folderSortDescending: v)),
+            ),
           IconButton(
             tooltip: '테마',
             icon: const Icon(Icons.palette_outlined),
@@ -43,14 +66,42 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      body: Stack(
+      body: _tab == 0 ? _buildLibrary(state) : const FolderBrowser(),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _tab,
+        onDestinationSelected: (i) => setState(() => _tab = i),
+        destinations: const [
+          NavigationDestination(
+              icon: Icon(Icons.local_library_outlined),
+              selectedIcon: Icon(Icons.local_library),
+              label: '서재'),
+          NavigationDestination(
+              icon: Icon(Icons.folder_outlined),
+              selectedIcon: Icon(Icons.folder),
+              label: '폴더'),
+        ],
+      ),
+      floatingActionButton: _tab != 0
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _busy ? null : _showOpenMenu,
+              icon: const Icon(Icons.add),
+              label: const Text('가져오기'),
+            ),
+    );
+  }
+
+  Widget _buildLibrary(AppState state) {
+    final theme = state.theme;
+    final entries = state.entries;
+    return Stack(
         children: [
           if (entries.isEmpty)
             Center(
               child: Padding(
                 padding: const EdgeInsets.all(32),
                 child: Text(
-                  '서재가 비어 있습니다.\n+ 버튼으로 TXT 파일이나 이미지를 여세요.',
+                  '서재가 비어 있습니다.\n가져오기 버튼이나 폴더 탭에서 파일을 여세요.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: theme.text.withValues(alpha: 0.7)),
                 ),
@@ -70,13 +121,7 @@ class _HomePageState extends State<HomePage> {
             ),
           if (_busy) const LinearProgressIndicator(),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _busy ? null : _showOpenMenu,
-        icon: const Icon(Icons.add),
-        label: const Text('열기'),
-      ),
-    );
+      );
   }
 
   void _showOpenMenu() {
@@ -178,20 +223,16 @@ class _HomePageState extends State<HomePage> {
         return first;
       });
 
-  void _open(LibraryEntry entry) {
-    final page = entry.kind == BookKind.text
-        ? TextReaderPage(entryId: entry.id)
-        : ImageViewerPage(entryId: entry.id);
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
-  }
+  void _open(LibraryEntry entry) => openEntry(context, entry);
 
   Future<void> _confirmDelete(LibraryEntry entry) async {
+    final external = AppScope.read(context).isExternal(entry);
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('서재에서 삭제'),
         content: Text('"${entry.title}"을(를) 서재에서 삭제합니다.\n'
-            '앱에 복사된 파일도 삭제되며 원본 파일은 유지됩니다.'),
+            '${external ? '읽은 위치·북마크만 지워지고 폴더의 파일은 유지됩니다.' : '앱에 복사된 파일도 삭제되며 원본 파일은 유지됩니다.'}'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -211,6 +252,53 @@ class _HomePageState extends State<HomePage> {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+class _SortMenu<T> extends StatelessWidget {
+  const _SortMenu({
+    required this.values,
+    required this.selected,
+    required this.descending,
+    required this.label,
+    required this.onSelected,
+    required this.onDescending,
+  });
+
+  final List<T> values;
+  final T selected;
+  final bool descending;
+  final String Function(T) label;
+  final ValueChanged<T> onSelected;
+  final ValueChanged<bool> onDescending;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<Object>(
+      tooltip: '정렬',
+      icon: const Icon(Icons.sort),
+      onSelected: (v) {
+        if (v == #descending) {
+          onDescending(!descending);
+        } else {
+          onSelected(v as T);
+        }
+      },
+      itemBuilder: (_) => [
+        for (final v in values)
+          CheckedPopupMenuItem<Object>(
+            value: v,
+            checked: v == selected,
+            child: Text(label(v)),
+          ),
+        const PopupMenuDivider(),
+        CheckedPopupMenuItem<Object>(
+          value: #descending,
+          checked: descending,
+          child: const Text('내림차순'),
+        ),
+      ],
+    );
   }
 }
 

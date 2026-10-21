@@ -114,6 +114,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
   @override
   void initState() {
     super.initState();
+    ReaderChrome.acquire();
     _state = AppScope.read(context);
     _state.addListener(_onState);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -126,9 +127,8 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
     _state.removeListener(_onState);
     _images?.close();
     _controller?.dispose();
-    if (_volumeOn == true) VolumeKeys.disable();
-    if (_wakelockOn == true) WakelockPlus.disable().catchError((Object _) {});
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    VolumeKeys.disable(this);
+    ReaderChrome.release();
     _state.flush();
     super.dispose();
   }
@@ -177,9 +177,9 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
     if (_volumeOn != s.volumeKeyPaging) {
       _volumeOn = s.volumeKeyPaging;
       if (s.volumeKeyPaging) {
-        VolumeKeys.enable((next) => _turn(next ? 1 : -1));
+        VolumeKeys.enable(this, (next) => _turn(next ? 1 : -1));
       } else {
-        VolumeKeys.disable();
+        VolumeKeys.disable(this);
       }
     }
   }

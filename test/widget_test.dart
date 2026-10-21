@@ -24,7 +24,8 @@ void main() {
 
     await tester.pumpWidget(RuneReaderApp(state: state));
     expect(find.textContaining('서재가 비어 있습니다'), findsOneWidget);
-    expect(find.text('열기'), findsOneWidget);
+    expect(find.text('가져오기'), findsOneWidget);
+    expect(find.text('폴더'), findsOneWidget); // bottom navigation
 
     state.selectTheme('dark');
     await tester.pump();

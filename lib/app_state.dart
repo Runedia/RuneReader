@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
+import 'package:path/path.dart' as p;
 
 import 'models/book.dart';
 import 'models/reader_settings.dart';
 import 'models/reader_theme.dart';
+import 'services/folder_service.dart';
 import 'services/font_service.dart';
 import 'services/library_service.dart';
 import 'services/storage.dart';
@@ -40,13 +42,85 @@ class AppState extends ChangeNotifier {
     return null;
   }
 
-  /// Library entries, most recently used first.
-  List<LibraryEntry> get entries {
-    final list = [..._entries];
-    list.sort((a, b) => (b.lastOpenedAt ?? b.addedAt)
-        .compareTo(a.lastOpenedAt ?? a.addedAt));
-    return list;
+  /// Library entries in the configured sort order.
+  List<LibraryEntry> get entries => sortLibraryEntries(
+        _entries,
+        _settings.librarySort,
+        descending: _settings.librarySortDescending,
+      );
+
+  /// Whether the entry refers to a file outside the app library (opened
+  /// from the folder browser) rather than an imported copy.
+  bool isExternal(LibraryEntry entry) =>
+      !p.isWithin(library.root.path, entry.path);
+
+  LibraryEntry? entryByPath(String path) {
+    for (final e in _entries) {
+      if (p.equals(e.path, path)) return e;
+    }
+    return null;
   }
+
+  /// Returns the entry for a file or image folder opened in place,
+  /// creating it when needed. The file is not copied.
+  Future<LibraryEntry> entryForPath(String path, BookKind kind) async {
+    final existing = entryByPath(path);
+    if (existing != null) return existing;
+    final entry = LibraryEntry(
+      id: library.newId(),
+      title: kind == BookKind.images
+          ? p.basename(path)
+          : p.basenameWithoutExtension(path),
+      kind: kind,
+      path: path,
+      addedAt: DateTime.now(),
+    );
+    await addEntry(entry);
+    return entry;
+  }
+
+  /// The text book [delta] positions away from [entry]: the neighboring
+  /// text file in the same folder for external files, otherwise the
+  /// neighboring text entry in library order.
+  Future<LibraryEntry?> neighborText(LibraryEntry entry, int delta) async {
+    if (isExternal(entry)) {
+      final path = await neighborTextFile(
+        entry.path,
+        delta,
+        sort: _settings.folderSort,
+        descending: _settings.folderSortDescending,
+      );
+      return path == null ? null : entryForPath(path, BookKind.text);
+    }
+    final texts = entries
+        .where((e) => e.kind == BookKind.text && !isExternal(e))
+        .toList();
+    final i = texts.indexWhere((e) => e.id == entry.id);
+    if (i < 0) return null;
+    final target = i + delta;
+    if (target < 0 || target >= texts.length) return null;
+    return texts[target];
+  }
+
+  // ---- Folders ------------------------------------------------------------
+
+  void setCurrentFolder(String path) =>
+      updateSettings(_settings.copyWith(currentFolder: path));
+
+  bool isRegistered(String path) =>
+      _settings.registeredFolders.any((f) => p.equals(f, path));
+
+  void registerFolder(String path) {
+    if (isRegistered(path)) return;
+    updateSettings(_settings.copyWith(
+        registeredFolders: [..._settings.registeredFolders, path]));
+  }
+
+  void unregisterFolder(String path) => updateSettings(_settings.copyWith(
+      registeredFolders: [
+        for (final f in _settings.registeredFolders)
+          if (!p.equals(f, path)) f,
+      ]));
 
   LibraryEntry? entryById(String id) {
     for (final e in _entries) {

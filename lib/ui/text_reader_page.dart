@@ -36,9 +36,17 @@ class _ParseArgs {
 }
 
 class TextReaderPage extends StatefulWidget {
-  const TextReaderPage({super.key, required this.entryId});
+  const TextReaderPage({
+    super.key,
+    required this.entryId,
+    this.startAtEnd = false,
+  });
 
   final String entryId;
+
+  /// Start at the end when the book has no saved progress (used when
+  /// stepping back into the previous file).
+  final bool startAtEnd;
 
   @override
   State<TextReaderPage> createState() => _TextReaderPageState();
@@ -96,6 +104,7 @@ class _TextReaderPageState extends State<TextReaderPage> {
   @override
   void initState() {
     super.initState();
+    ReaderChrome.acquire();
     _state = AppScope.read(context);
     final entry = _state.entryById(widget.entryId);
     if (entry == null) {
@@ -127,9 +136,8 @@ class _TextReaderPageState extends State<TextReaderPage> {
     _pageController?.dispose();
     _positionNotifier.dispose();
     _now.dispose();
-    if (_volumeOn == true) VolumeKeys.disable();
-    if (_wakelockOn == true) _safe(WakelockPlus.disable);
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    VolumeKeys.disable(this);
+    ReaderChrome.release();
     _state.flush();
     super.dispose();
   }
@@ -174,6 +182,10 @@ class _TextReaderPageState extends State<TextReaderPage> {
         // Paragraph indices changed; keep the same relative place.
         final pos = doc.positionAt((progress * doc.totalChars).round());
         _position = ReadingPosition(pos.paragraph, pos.offset);
+      } else if (widget.startAtEnd && _entry.progress == 0) {
+        // Opened backwards from the next file: start at the last line.
+        _position =
+            ReadingPosition(doc.length - 1, doc.paragraphs.last.length);
       } else if (_position.paragraph >= doc.length) {
         _position = ReadingPosition(doc.length - 1);
       }
@@ -212,9 +224,9 @@ class _TextReaderPageState extends State<TextReaderPage> {
     if (_volumeOn != s.volumeKeyPaging) {
       _volumeOn = s.volumeKeyPaging;
       if (s.volumeKeyPaging) {
-        VolumeKeys.enable((next) => next ? _next() : _previous());
+        VolumeKeys.enable(this, (next) => _turn(next ? 1 : -1, volume: true));
       } else {
-        VolumeKeys.disable();
+        VolumeKeys.disable(this);
       }
     }
     final immersive = s.fullscreen && !_menu;
@@ -375,9 +387,17 @@ class _TextReaderPageState extends State<TextReaderPage> {
 
   void _next() => _turn(1);
   void _previous() => _turn(-1);
+  bool _opening = false;
 
-  void _turn(int delta) {
+  /// Moves one page (or one screen in scroll mode). With [volume], hitting
+  /// the start or end opens the previous or next text file.
+  void _turn(int delta, {bool volume = false}) {
+    if (_opening) return;
     if (_layoutMode == ReadingMode.scroll) {
+      if (_atScrollEdge(delta)) {
+        _onBoundary(delta, volume);
+        return;
+      }
       _scrollOffset.animateScroll(
         offset: delta * _contentSize.height * 0.92,
         duration: const Duration(milliseconds: 200),
@@ -388,14 +408,12 @@ class _TextReaderPageState extends State<TextReaderPage> {
     final controller = _pageController;
     if (p == null || controller == null || !controller.hasClients) return;
     final target = _pageIndex + delta;
-    if (target < 0) return;
+    if (target < 0) {
+      _onBoundary(delta, volume);
+      return;
+    }
     if (target >= p.pages.length) {
-      if (p.done) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('마지막 페이지입니다'),
-            duration: Duration(seconds: 1)));
-      }
+      if (p.done) _onBoundary(delta, volume);
       return;
     }
     if (_s.pageAnimation == PageAnimation.slide) {
@@ -404,6 +422,59 @@ class _TextReaderPageState extends State<TextReaderPage> {
     } else {
       controller.jumpToPage(target);
     }
+  }
+
+  /// Whether the scroll list is at its first (delta < 0) or last
+  /// (delta > 0) position.
+  bool _atScrollEdge(int delta) {
+    final doc = _doc;
+    final positions = _itemPositions.itemPositions.value;
+    if (doc == null || positions.isEmpty) return false;
+    if (delta < 0) {
+      return positions.any((p) => p.index == 0 && p.itemLeadingEdge >= -0.001);
+    }
+    return positions
+        .any((p) => p.index == doc.length - 1 && p.itemTrailingEdge <= 1.001);
+  }
+
+  void _onBoundary(int delta, bool volume) {
+    if (volume && _s.autoNextFile) {
+      _openNeighbor(delta);
+      return;
+    }
+    _snack(delta > 0 ? '마지막 페이지입니다' : '첫 페이지입니다');
+  }
+
+  Future<void> _openNeighbor(int delta) async {
+    final entry = _state.entryById(widget.entryId);
+    if (entry == null) return;
+    _opening = true;
+    try {
+      final next = await _state.neighborText(entry, delta);
+      if (!mounted) return;
+      if (next == null) {
+        _snack(delta > 0 ? '마지막 파일입니다' : '첫 파일입니다');
+        return;
+      }
+      _snack('${delta > 0 ? '다음' : '이전'} 파일: ${next.title}');
+      await _state.flush();
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(PageRouteBuilder<void>(
+        pageBuilder: (_, _, _) =>
+            TextReaderPage(entryId: next.id, startAtEnd: delta < 0),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ));
+    } finally {
+      _opening = false;
+    }
+  }
+
+  void _snack(String message) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(SnackBar(
+        content: Text(message), duration: const Duration(milliseconds: 1500)));
   }
 
   void _onPageChanged(int index) {
@@ -773,8 +844,7 @@ class _TextReaderPageState extends State<TextReaderPage> {
     );
     _entry = entry.copyWith(bookmarks: [...entry.bookmarks, bookmark]);
     _state.updateEntry(_entry);
-    ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('북마크를 추가했습니다'), duration: Duration(seconds: 1)));
+    _snack('북마크를 추가했습니다');
   }
 
   Future<void> _openToc() async {

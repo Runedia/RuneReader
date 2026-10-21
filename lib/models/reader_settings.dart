@@ -16,6 +16,26 @@ enum ReaderTextAlign {
 
 enum ImageFit { contain, fitWidth, fitHeight }
 
+enum LibrarySort {
+  recent('최근 열람'),
+  added('추가일'),
+  title('이름'),
+  progress('진행률');
+
+  const LibrarySort(this.label);
+  final String label;
+}
+
+enum FolderSort {
+  name('이름'),
+  modified('수정일'),
+  size('크기'),
+  type('종류');
+
+  const FolderSort(this.label);
+  final String label;
+}
+
 /// Typography, layout, and behavior settings for the reader.
 ///
 /// All lengths are logical pixels except [indent] (em) and [lineHeight]
@@ -34,17 +54,24 @@ class ReaderSettings {
     this.marginHorizontal = 20,
     this.marginVertical = 24,
     this.textAlign = ReaderTextAlign.justify,
-    this.readingMode = ReadingMode.page,
+    this.readingMode = ReadingMode.scroll,
     this.pageAnimation = PageAnimation.slide,
     this.themeId = 'light',
     this.keepScreenOn = true,
     this.fullscreen = true,
     this.showFooter = true,
-    this.volumeKeyPaging = false,
+    this.volumeKeyPaging = true,
+    this.autoNextFile = true,
     this.collapseBlankLines = true,
     this.trimParagraphs = false,
     this.imageFit = ImageFit.contain,
     this.imageRightToLeft = false,
+    this.librarySort = LibrarySort.recent,
+    this.librarySortDescending = true,
+    this.folderSort = FolderSort.name,
+    this.folderSortDescending = false,
+    this.currentFolder,
+    this.registeredFolders = const [],
   });
 
   static const minFontSize = 8.0;
@@ -82,6 +109,10 @@ class ReaderSettings {
   final bool showFooter;
   final bool volumeKeyPaging;
 
+  /// Volume keys at the start/end of a text open the previous/next text
+  /// file in the same folder (or library order for imported files).
+  final bool autoNextFile;
+
   /// Merge runs of blank lines into a single blank line.
   final bool collapseBlankLines;
 
@@ -89,6 +120,16 @@ class ReaderSettings {
   final bool trimParagraphs;
   final ImageFit imageFit;
   final bool imageRightToLeft;
+  final LibrarySort librarySort;
+  final bool librarySortDescending;
+  final FolderSort folderSort;
+  final bool folderSortDescending;
+
+  /// Working directory of the folder browser.
+  final String? currentFolder;
+
+  /// Folders registered as shortcuts in the folder browser.
+  final List<String> registeredFolders;
 
   ReaderSettings copyWith({
     String? fontId,
@@ -110,10 +151,17 @@ class ReaderSettings {
     bool? fullscreen,
     bool? showFooter,
     bool? volumeKeyPaging,
+    bool? autoNextFile,
     bool? collapseBlankLines,
     bool? trimParagraphs,
     ImageFit? imageFit,
     bool? imageRightToLeft,
+    LibrarySort? librarySort,
+    bool? librarySortDescending,
+    FolderSort? folderSort,
+    bool? folderSortDescending,
+    String? currentFolder,
+    List<String>? registeredFolders,
   }) {
     return ReaderSettings(
       fontId: fontId ?? this.fontId,
@@ -135,10 +183,18 @@ class ReaderSettings {
       fullscreen: fullscreen ?? this.fullscreen,
       showFooter: showFooter ?? this.showFooter,
       volumeKeyPaging: volumeKeyPaging ?? this.volumeKeyPaging,
+      autoNextFile: autoNextFile ?? this.autoNextFile,
       collapseBlankLines: collapseBlankLines ?? this.collapseBlankLines,
       trimParagraphs: trimParagraphs ?? this.trimParagraphs,
       imageFit: imageFit ?? this.imageFit,
       imageRightToLeft: imageRightToLeft ?? this.imageRightToLeft,
+      librarySort: librarySort ?? this.librarySort,
+      librarySortDescending:
+          librarySortDescending ?? this.librarySortDescending,
+      folderSort: folderSort ?? this.folderSort,
+      folderSortDescending: folderSortDescending ?? this.folderSortDescending,
+      currentFolder: currentFolder ?? this.currentFolder,
+      registeredFolders: registeredFolders ?? this.registeredFolders,
     );
   }
 
@@ -167,10 +223,17 @@ class ReaderSettings {
         'fullscreen': fullscreen,
         'showFooter': showFooter,
         'volumeKeyPaging': volumeKeyPaging,
+        'autoNextFile': autoNextFile,
         'collapseBlankLines': collapseBlankLines,
         'trimParagraphs': trimParagraphs,
         'imageFit': imageFit.name,
         'imageRightToLeft': imageRightToLeft,
+        'librarySort': librarySort.name,
+        'librarySortDescending': librarySortDescending,
+        'folderSort': folderSort.name,
+        'folderSortDescending': folderSortDescending,
+        'currentFolder': currentFolder,
+        'registeredFolders': registeredFolders,
       };
 
   /// Reads known keys from [json] over this instance; unknown or invalid
@@ -193,6 +256,7 @@ class ReaderSettings {
     }
 
     final weight = json['fontWeight'];
+    final folders = json['registeredFolders'];
     return copyWith(
       fontId: json['fontId'] is String ? json['fontId'] as String : null,
       fontSize: d('fontSize', minFontSize, maxFontSize),
@@ -213,10 +277,21 @@ class ReaderSettings {
       fullscreen: b('fullscreen'),
       showFooter: b('showFooter'),
       volumeKeyPaging: b('volumeKeyPaging'),
+      autoNextFile: b('autoNextFile'),
       collapseBlankLines: b('collapseBlankLines'),
       trimParagraphs: b('trimParagraphs'),
       imageFit: e('imageFit', ImageFit.values),
       imageRightToLeft: b('imageRightToLeft'),
+      librarySort: e('librarySort', LibrarySort.values),
+      librarySortDescending: b('librarySortDescending'),
+      folderSort: e('folderSort', FolderSort.values),
+      folderSortDescending: b('folderSortDescending'),
+      currentFolder: json['currentFolder'] is String
+          ? json['currentFolder'] as String
+          : null,
+      registeredFolders: folders is List
+          ? [for (final f in folders) if (f is String) f]
+          : null,
     );
   }
 
