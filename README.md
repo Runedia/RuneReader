@@ -1,17 +1,11 @@
-# rune_reader
+# RuneReader
 
-TXT and image e-book reader
+Android용 TXT·이미지 E-Book 리더 (Flutter / Dart).
 
-## Getting Started
+- 기능명세서와 구현 체크리스트: [docs/FEATURES.md](docs/FEATURES.md)
+- 개발 환경·작업 규칙: [AGENTS.md](AGENTS.md)
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```powershell
+.\tool\flutter.ps1 test
+.\tool\flutter.ps1 build apk --debug
+```
