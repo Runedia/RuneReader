@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!--
+    Android 13+ themed icon: only alpha is used; the launcher tints it.
+    Pages are semi-transparent, the rune is opaque and separated from the
+    pages by a transparent gap.
+  -->
+  <defs>
+    <mask id="cut">
+      <rect width="512" height="512" fill="#fff"/>
+      <path d="M222 356 V114 L294 168 L222 222 L300 354" fill="none" stroke="#000"
+            stroke-width="44" stroke-linecap="butt" stroke-linejoin="bevel"/>
+    </mask>
+  </defs>
+  <g transform="translate(256 256) scale(0.74) translate(-256 -240)">
+    <g mask="url(#cut)" fill="#fff" fill-opacity="0.55">
+      <path d="M112 352 C160 338 214 342 256 366 C298 342 352 338 400 352 L400 372 C352 358 298 362 256 386 C214 362 160 358 112 372 Z"/>
+      <path d="M256 366 C214 342 160 338 112 352 L112 230 C160 216 214 220 256 244 Z"/>
+      <path d="M256 366 C298 342 352 338 400 352 L400 230 C352 216 298 220 256 244 Z"/>
+    </g>
+    <path d="M222 356 V114 L294 168 L222 222 L300 354" fill="none" stroke="#fff"
+          stroke-width="28" stroke-linecap="butt" stroke-linejoin="bevel"/>
+  </g>
+</svg>

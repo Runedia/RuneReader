@@ -115,6 +115,8 @@ Android용 TXT·이미지 E-Book 리더. 참고 모델: 문+ 리더(Moon+ Reader
 | [x] | H-6 | 불러오기 | 번들·단일 객체·배열 형식 허용, 형식/버전 검증, id 충돌 시 새 id, 포함된 텍스트 설정 적용 여부 확인 | T | 同 |
 | [x] | H-7 | 빠른 전환 | 리더 메뉴의 라이트/다크 토글, 설정 시트의 테마 견본 | D(토글) | `ui/text_reader_page.dart` |
 
+| [x] | H-8 | 앱 아이콘 | 펼친 책과 룬 ᚱ(Raidō), 페이지에 ᚱᚢᚾᛖ. 적응형(배경·전경)·단색(Android 13 테마 아이콘)·레거시 아이콘. 원본 `assets/icon/*.svg` → `tool/render_icons.mjs` → `flutter_launcher_icons` | D | `assets/icon/`, `pubspec.yaml` |
+
 ### 테마 파일 형식 (v1)
 
 ```json
