@@ -238,14 +238,20 @@ class AppState extends ChangeNotifier {
   }
 
   /// Updates an entry; disk writes are debounced.
-  void updateEntry(LibraryEntry entry) {
+  /// Replaces [entry] and schedules a save. Pass `notify: false` for
+  /// high-frequency updates (reading position while scrolling), which would
+  /// otherwise rebuild the whole app every frame.
+  void updateEntry(LibraryEntry entry, {bool notify = true}) {
     final i = _entries.indexWhere((e) => e.id == entry.id);
     if (i < 0) return;
     _entries[i] = entry;
-    notifyListeners();
+    if (notify) notifyListeners();
     _saveLibraryTimer?.cancel();
     _saveLibraryTimer = Timer(const Duration(milliseconds: 800), flush);
   }
+
+  /// Notifies listeners after silent (`notify: false`) entry updates.
+  void refresh() => notifyListeners();
 
   Future<void> removeEntry(LibraryEntry entry) async {
     _entries.removeWhere((e) => e.id == entry.id);

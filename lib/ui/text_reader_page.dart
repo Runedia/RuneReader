@@ -139,6 +139,9 @@ class _TextReaderPageState extends State<TextReaderPage> {
     VolumeKeys.disable(this);
     ReaderChrome.release();
     _state.flush();
+    // Position updates were silent; let the library list pick them up once.
+    final state = _state;
+    scheduleMicrotask(state.refresh);
     super.dispose();
   }
 
@@ -351,11 +354,14 @@ class _TextReaderPageState extends State<TextReaderPage> {
     if (doc == null) return;
     final entry = _state.entryById(widget.entryId);
     if (entry == null) return;
-    _state.updateEntry(entry.copyWith(
-      position: pos,
-      progress: doc.progressAt(pos.paragraph, pos.offset),
-      lastOpenedAt: DateTime.now(),
-    ));
+    _state.updateEntry(
+      entry.copyWith(
+        position: pos,
+        progress: doc.progressAt(pos.paragraph, pos.offset),
+        lastOpenedAt: DateTime.now(),
+      ),
+      notify: false,
+    );
   }
 
   void _goTo(ReadingPosition pos) {
