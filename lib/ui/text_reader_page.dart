@@ -357,11 +357,35 @@ class _TextReaderPageState extends State<TextReaderPage> {
     _state.updateEntry(
       entry.copyWith(
         position: pos,
-        progress: doc.progressAt(pos.paragraph, pos.offset),
+        progress: _progressFor(pos),
         lastOpenedAt: DateTime.now(),
       ),
       notify: false,
     );
+  }
+
+  /// Reading progress for a view whose top is [pos], measured at the bottom
+  /// edge of the view so that the last screen reads 100 %.
+  double _progressFor(ReadingPosition pos) {
+    final doc = _doc;
+    if (doc == null) return 0;
+    if (_layoutMode == ReadingMode.page) {
+      final p = _paginator;
+      final index = p?.pageIndexFor(pos);
+      if (p != null && index != null) {
+        if (index + 1 < p.pages.length) {
+          final next = p.pages[index + 1].start;
+          return doc.progressAt(next.paragraph, next.offset);
+        }
+        if (p.done) return 1;
+      }
+    } else {
+      final cache = _renderCache;
+      if (cache != null && _contentSize.height > 0) {
+        return cache.endProgress(pos, _contentSize.height);
+      }
+    }
+    return doc.progressAt(pos.paragraph, pos.offset);
   }
 
   void _goTo(ReadingPosition pos) {
@@ -669,11 +693,10 @@ class _TextReaderPageState extends State<TextReaderPage> {
   Widget _buildFooter(ReaderTheme theme) {
     final style = TextStyle(
         color: theme.text.withValues(alpha: 0.55), fontSize: 11, height: 1.2);
-    final doc = _doc!;
     return ValueListenableBuilder<ReadingPosition>(
       valueListenable: _positionNotifier,
       builder: (context, pos, _) {
-        final percent = doc.progressAt(pos.paragraph, pos.offset) * 100;
+        final percent = _progressFor(pos) * 100;
         final p = _paginator;
         final pageText = _layoutMode == ReadingMode.page && p != null
             ? '${_pageIndex + 1} / ${p.done ? p.pages.length : '${p.pages.length}+'}'

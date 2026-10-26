@@ -82,7 +82,7 @@ Android용 TXT·이미지 E-Book 리더. 참고 모델: 문+ 리더(Moon+ Reader
 | [x] | R-8 | 목차 자동 감지 | `제n장/화/권`, `n화`, `Chapter`, `프롤로그/에필로그/외전`, `〈n〉` 등 | T | `services/toc.dart` |
 | [x] | R-9 | 북마크 | 추가·목록·이동·삭제 | T(저장) | `ui/text_reader_page.dart` |
 | [x] | R-10 | 본문 검색 | 대소문자 무시, 최대 500건, 문맥 표시, 결과로 이동 | T | `services/text_document.dart` |
-| [x] | R-11 | 하단 정보 | 장 제목 · 시각 · 쪽/전체 · 진행률 | D | `ui/text_reader_page.dart` |
+| [x] | R-11 | 하단 정보 | 장 제목 · 시각 · 쪽/전체 · 진행률(화면 하단 기준, 문서 끝이 보이면 100%) | T | `ui/text_reader_page.dart` |
 | [x] | R-12 | 전체 화면 | immersive sticky, 메뉴 표시 중 시스템 바 노출 | D | 同 |
 | [x] | R-13 | 화면 켜짐 유지 | `wakelock_plus` | B | 同 |
 | [ ] | R-14 | 화면 밝기 조절 | | - | |

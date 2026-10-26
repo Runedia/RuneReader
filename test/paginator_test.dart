@@ -124,4 +124,42 @@ void main() {
     expect(p.done, isTrue);
     expect(p.pages.length, 2);
   });
+
+  testWidgets('endProgress follows the viewport bottom and reaches 1',
+      (tester) async {
+    final doc = sampleDoc();
+    final cache = ParagraphLayoutCache(doc, spec(spacing: 6));
+    const height = 200.0;
+
+    final atStart = cache.endProgress(const ReadingPosition(0), height);
+    expect(atStart, greaterThan(0));
+    expect(atStart, lessThan(0.2));
+
+    // Never decreases as the top moves forward, and never exceeds 1.
+    var previous = 0.0;
+    for (var i = 0; i < doc.length; i++) {
+      final v = cache.endProgress(ReadingPosition(i), height);
+      expect(v, greaterThanOrEqualTo(previous - 1e-9));
+      expect(v, lessThanOrEqualTo(1));
+      previous = v;
+    }
+
+    // A screen whose bottom shows the end of the book is 100 %.
+    final last = doc.length - 1;
+    expect(cache.endProgress(ReadingPosition(last), height), 1);
+    // Scrolled to the maximum extent: last paragraph bottom (plus its
+    // trailing spacing) sits at the viewport bottom.
+    var total = 0.0;
+    for (var i = 0; i < doc.length; i++) {
+      total += cache.painter(i).height + 6;
+    }
+    var y = total - height;
+    var para = 0;
+    while (y > cache.painter(para).height + 6) {
+      y -= cache.painter(para).height + 6;
+      para++;
+    }
+    final start = ReadingPosition(para, cache.offsetAtY(para, y));
+    expect(cache.endProgress(start, height), 1);
+  });
 }

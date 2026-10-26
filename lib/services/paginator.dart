@@ -116,6 +116,36 @@ class ParagraphLayoutCache {
     return caret.dy;
   }
 
+  /// Fraction of the document read (0..1) when a scroll viewport of [height]
+  /// has [start] at its top, measured at the bottom edge of the viewport.
+  /// Reaches 1 once the end of the document is on screen.
+  double endProgress(ReadingPosition start, double height) {
+    final last = document.length - 1;
+    var para = start.paragraph.clamp(0, last);
+    var y = yForOffset(para, start.offset);
+    var remaining = height;
+    while (true) {
+      final painter = this.painter(para);
+      final available = painter.height - y;
+      if (para == last &&
+          remaining + spec.paragraphSpacing + _edgeEpsilon >= available) {
+        return 1;
+      }
+      final length = document.paragraphs[para].length;
+      if (remaining < available) {
+        final at = painter.getPositionForOffset(Offset(0, y + remaining - 1));
+        final end = painter.getLineBoundary(at).end - prefixLength(para);
+        return document.progressAt(para, end.clamp(0, length));
+      }
+      remaining -= available + spec.paragraphSpacing;
+      if (remaining <= 0) return document.progressAt(para, length);
+      y = 0;
+      para++;
+    }
+  }
+
+  static const _edgeEpsilon = 0.5;
+
   void dispose() {
     for (final p in _cache.values) {
       p.dispose();
